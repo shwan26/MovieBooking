@@ -19,3 +19,8 @@ Feature	URL
 ➕ Add Movie	/admin/movies/new
 🕒 Show Management	/admin/shows
 📦 Booking Management	/admin/bookings
+
+
+run the code
+client - npm run dev
+server - npx nodemon index.js

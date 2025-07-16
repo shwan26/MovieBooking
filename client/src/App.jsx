@@ -16,6 +16,7 @@ import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminMovieListPage from './pages/admin/AdminMovieListPage';
 import AdminAddMoviePage from './pages/admin/AdminAddMoviePage';
+import AdminAddShowPage from './pages/admin/AdminAddShowPage';
 import AdminShowManagementPage from './pages/admin/AdminShowManagementPage';
 import AdminBookingManagementPage from './pages/admin/AdminBookingManagementPage';
 
@@ -40,6 +41,7 @@ function App() {
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/movies" element={<AdminMovieListPage />} />
       <Route path="/admin/movies/new" element={<AdminAddMoviePage />} />
+      <Route path="/admin/shows/new" element={<AdminAddShowPage />} />
       <Route path="/admin/shows" element={<AdminShowManagementPage />} />
       <Route path="/admin/bookings" element={<AdminBookingManagementPage />} />
     </Routes>
