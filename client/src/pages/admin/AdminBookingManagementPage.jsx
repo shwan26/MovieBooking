@@ -1,22 +1,25 @@
-import { Container, Typography, List, ListItem, ListItemText, Button } from '@mui/material';
-
-const mockBookings = [
-  { id: 'b1', movie: 'Inception', user: 'jo@example.com', seat: 'A1', status: 'Confirmed' },
-  { id: 'b2', movie: 'Interstellar', user: 'mai@example.com', seat: 'B2', status: 'Confirmed' }
-];
+import { Container, Typography, List, ListItem, ListItemText } from '@mui/material';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 
 export default function AdminBookingManagementPage() {
+  const [bookings, setBookings] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/bookings') // make sure this route exists
+      .then(res => setBookings(res.data));
+  }, []);
+
   return (
     <Container>
-      <Typography variant="h4" gutterBottom>📦 Manage Bookings</Typography>
+      <Typography variant="h4" gutterBottom>📦 Booking Management</Typography>
       <List>
-        {mockBookings.map(b => (
-          <ListItem key={b.id}>
+        {bookings.map(b => (
+          <ListItem key={b._id}>
             <ListItemText
-              primary={`${b.movie} • ${b.user}`}
-              secondary={`Seat: ${b.seat} • Status: ${b.status}`}
+              primary={`Movie: ${b.movieId || b.showId} • Seats: ${b.seats.join(', ')}`}
+              secondary={`User: ${b.userId} • Total: ${b.totalAmount} • Booked At: ${b.bookedAt}`}
             />
-            <Button size="small" color="error">Cancel</Button>
           </ListItem>
         ))}
       </List>

@@ -13,7 +13,10 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
 import AdminLoginPage from './pages/admin/AdminLoginPage';
-import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminShowListPage from './pages/admin/AdminShowListPage';
+import AdminUserBookingStatsPage from './pages/admin/AdminUserBookingStatsPage';
+import AdminShowBookingStatsPage from './pages/admin/AdminShowBookingStatsPage';
 import AdminMovieListPage from './pages/admin/AdminMovieListPage';
 import AdminAddMoviePage from './pages/admin/AdminAddMoviePage';
 import AdminAddShowPage from './pages/admin/AdminAddShowPage';
@@ -38,10 +41,13 @@ function App() {
 
       {/* Admin Pages */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
-      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+      <Route path="/admin/shows" element={<AdminShowListPage />} />
+      <Route path="/admin/users/bookings" element={<AdminUserBookingStatsPage />} />
+      <Route path="/admin/shows/bookings" element={<AdminShowBookingStatsPage />} />
       <Route path="/admin/movies" element={<AdminMovieListPage />} />
       <Route path="/admin/movies/new" element={<AdminAddMoviePage />} />
-      <Route path="/admin/shows/new" element={<AdminAddShowPage />} />
+     <Route path="/admin/shows/new" element={<AdminAddShowPage />} />
       <Route path="/admin/shows" element={<AdminShowManagementPage />} />
       <Route path="/admin/bookings" element={<AdminBookingManagementPage />} />
     </Routes>
