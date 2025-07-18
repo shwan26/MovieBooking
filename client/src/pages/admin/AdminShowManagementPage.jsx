@@ -1,28 +1,35 @@
-import { Container, Typography, TextField, Button, List, ListItem, ListItemText } from '@mui/material';
-import { useState } from 'react';
-
-const mockShows = [
-  { id: 's1', movie: 'Inception', time: '14:00', screen: 'Screen 1' },
-  { id: 's2', movie: 'Interstellar', time: '18:00', screen: 'Screen 2' }
-];
+import { Container, Typography, List, ListItem, ListItemText, Button } from '@mui/material';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
 
 export default function AdminShowManagementPage() {
-  const [form, setForm] = useState({ movie: '', screen: '', time: '' });
+  const [shows, setShows] = useState([]);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const fetchShows = async () => {
+    const res = await axios.get('http://localhost:5000/api/shows/all');
+    setShows(res.data);
+  };
+
+  const deleteShow = async (id) => {
+    await axios.delete(`http://localhost:5000/api/shows/${id}`);
+    fetchShows();
+  };
+
+  useEffect(() => {
+    fetchShows();
+  }, []);
 
   return (
     <Container>
-      <Typography variant="h4" gutterBottom>🕒 Manage Showtimes</Typography>
-      <TextField fullWidth name="movie" label="Movie Title" onChange={handleChange} sx={{ mb: 2 }} />
-      <TextField fullWidth name="screen" label="Screen" onChange={handleChange} sx={{ mb: 2 }} />
-      <TextField fullWidth name="time" label="Time (e.g., 19:00)" onChange={handleChange} sx={{ mb: 2 }} />
-      <Button variant="contained" sx={{ mb: 4 }}>Add Showtime</Button>
+      <Typography variant="h4" gutterBottom>🕒 Manage Shows</Typography>
       <List>
-        {mockShows.map(show => (
-          <ListItem key={show.id}>
-            <ListItemText primary={`${show.movie} • ${show.screen} • ${show.time}`} />
-            <Button size="small" color="error">Delete</Button>
+        {shows.map(show => (
+          <ListItem key={show._id} divider>
+            <ListItemText
+              primary={`${show.cinema} • ${show.format}`}
+              secondary={`${show.date} @ ${show.time}`}
+            />
+            <Button color="error" onClick={() => deleteShow(show._id)}>Delete</Button>
           </ListItem>
         ))}
       </List>
