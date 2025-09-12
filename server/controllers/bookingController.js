@@ -1,58 +1,103 @@
 import Booking from '../models/Booking.js';
 import Show from '../models/Show.js';
 
+// GET /api/bookings/:id
+export const getBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    res.json({ booking });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// POST /api/bookings
+// body: { showId, seats: string[] }
 export const createBooking = async (req, res) => {
   try {
-    const { userId, showId, selectedSeats, seatTypeMap, isMember, userAge, promoCode } = req.body;
+    const { showId, seats } = req.body;
+    if (!showId || !seats?.length) {
+      return res.status(400).json({ error: 'showId and seats are required' });
+    }
+
     const show = await Show.findById(showId);
     if (!show) return res.status(404).json({ error: 'Show not found' });
 
-    const conflicts = selectedSeats.filter(seat =>
-      show.seats.find(s => s.seatNumber === seat && s.isBooked)
-    );
-    if (conflicts.length > 0) return res.status(400).json({ error: `Seats already booked: ${conflicts.join(', ')}` });
-
-    const today = new Date().toISOString().split('T')[0];
-    const userBookings = await Booking.find({ userId, bookedAt: { $regex: `^${today}` } });
-    if (userBookings.length >= 5) return res.status(403).json({ error: 'Booking limit reached (5/day)' });
-
-    const bookedCount = show.seats.filter(s => s.isBooked).length;
-    const totalCapacity = show.seats.length;
-    if (bookedCount + selectedSeats.length > totalCapacity)
-      return res.status(400).json({ error: 'Show is full' });
-
-    let total = 0;
-    for (let seat of selectedSeats) {
-      const type = seatTypeMap[seat] || 'normal';
-      total += type === 'honeymoon' ? 250 : 150;
-    }
-
-    if (isMember) total *= 0.9;
-    if (promoCode === 'B4G1') {
-      const free = Math.floor(selectedSeats.length / 5);
-      total -= free * 150;
-    }
-    if (userAge < 12) total *= 0.8;
-    if (userAge > 60) total *= 0.85;
-
+    // cutoff 10 minutes before showtime
     const now = new Date();
     const showTime = new Date(`${show.date}T${show.time}`);
-    if (now > new Date(showTime.getTime() - 10 * 60000))
+    if (now > new Date(showTime.getTime() - 10 * 60000)) {
       return res.status(403).json({ error: 'Too late to book' });
+    }
 
+    // check conflicts
+    const conflicts = seats.filter(seat =>
+      show.seats.find(s => s.seatNumber === seat && s.isBooked)
+    );
+    if (conflicts.length) {
+      return res.status(400).json({ error: `Seats already booked: ${conflicts.join(', ')}` });
+    }
+
+    // mark seats as booked
     show.seats = show.seats.map(seat =>
-      selectedSeats.includes(seat.seatNumber)
+      seats.includes(seat.seatNumber)
         ? { ...seat.toObject(), isBooked: true }
         : seat
     );
     await show.save();
 
-    const booking = new Booking({ showId, userId, seats: selectedSeats, totalAmount: total });
+    const pricePerSeat = show.price ?? 300;
+    const total = pricePerSeat * seats.length;
+
+    const booking = new Booking({
+      showId,
+      seats,
+      totalAmount: total,
+      movieTitle: show.movieTitle,
+      cinema: show.cinema,
+      date: show.date,
+      time: show.time,
+      status: 'pending'
+    });
     await booking.save();
 
-    res.status(201).json({ message: 'Booking successful', booking });
-
+    res.status(201).json({ message: 'Booking created', booking });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// PATCH /api/bookings/:id/contact
+// body: { name, email, phone }
+export const addContact = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone } = req.body;
+    const booking = await Booking.findByIdAndUpdate(
+      id,
+      { contact: { name, email, phone } },
+      { new: true }
+    );
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    res.json({ message: 'Contact saved', booking });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+// POST /api/bookings/:id/confirm
+export const confirmBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await Booking.findByIdAndUpdate(
+      id,
+      { status: 'confirmed' },
+      { new: true }
+    );
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    res.json({ message: 'Booking confirmed', booking });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 };

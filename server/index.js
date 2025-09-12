@@ -21,7 +21,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/cancel', cancelRoutes);
 app.use('/api/admin', adminRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     app.listen(process.env.PORT, () =>
       console.log(`✅ Server running at http://localhost:${process.env.PORT}`)

@@ -48,7 +48,7 @@ function App() {
       <Route path="/admin/movies" element={<AdminMovieListPage />} />
       <Route path="/admin/movies/new" element={<AdminAddMoviePage />} />
      <Route path="/admin/shows/new" element={<AdminAddShowPage />} />
-      <Route path="/admin/shows" element={<AdminShowManagementPage />} />
+      <Route path="/admin/shows/manage)" element={<AdminShowManagementPage />} />
       <Route path="/admin/bookings" element={<AdminBookingManagementPage />} />
     </Routes>
   );
