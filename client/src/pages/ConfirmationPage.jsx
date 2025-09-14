@@ -5,6 +5,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import QRCode from 'qrcode';                 // ← NEW
 
 const PRICES = { normal: 250, honeymoon: 400 };
 const ADDON_PRICES = { popcorn: 100, cola: 20 };
@@ -18,6 +19,7 @@ export default function ConfirmationPage() {
   const [booking, setBooking] = useState(null);
   const [show, setShow] = useState(null);
   const [movieTitle, setMovieTitle] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');    // ← NEW
 
   useEffect(() => {
     let mounted = true;
@@ -26,17 +28,14 @@ export default function ConfirmationPage() {
         setLoading(true);
         setError('');
 
-        // 1) Booking (confirmed)
         const { data: wrap } = await axios.get(`http://localhost:5000/api/bookings/${bookingId}`);
         const b = wrap?.booking || wrap;
         if (!b?._id) throw new Error('Invalid booking payload');
         if (mounted) setBooking(b);
 
-        // 2) Show
         const { data: s } = await axios.get(`http://localhost:5000/api/shows/${b.showId}`);
         if (mounted) setShow(s);
 
-        // 3) Movie title
         const inlineTitle = s.movieTitle || s.title || s.movieName || s.movie?.title;
         if (inlineTitle) {
           if (mounted) setMovieTitle(inlineTitle);
@@ -54,6 +53,20 @@ export default function ConfirmationPage() {
     }
     load();
     return () => { mounted = false; };
+  }, [bookingId]);
+
+  // Generate QR for this confirmation link (client-side, no network)
+  useEffect(() => {
+    const makeQR = async () => {
+      try {
+        const url = `${window.location.origin}/confirmation/${bookingId}`;
+        const dataUrl = await QRCode.toDataURL(url, { width: 220, margin: 1 });
+        setQrDataUrl(dataUrl);
+      } catch {
+        setQrDataUrl('');
+      }
+    };
+    if (bookingId) makeQR();
   }, [bookingId]);
 
   // Seat type mapping for rendering tags
@@ -92,8 +105,9 @@ export default function ConfirmationPage() {
   }, [show]);
 
   const issuedAt = new Date(booking?.updatedAt || booking?.createdAt || Date.now());
-
   const printReceipt = () => window.print();
+
+  const confirmationUrl = `${window.location.origin}/confirmation/${bookingId}`; // for copy button
 
   if (loading) return <CircularProgress sx={{ m: 4 }} />;
   if (error) return <Alert severity="error" sx={{ m: 4 }}>{error}</Alert>;
@@ -143,11 +157,7 @@ export default function ConfirmationPage() {
           {seats.length ? (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
               {seats.map(s => (
-                <Chip
-                  key={s}
-                  size="small"
-                  label={`${s} • ${seatTypeMap[s] === 'honeymoon' ? 'H' : 'N'}`}
-                />
+                <Chip key={s} size="small" label={`${s} • ${seatTypeMap[s] === 'honeymoon' ? 'H' : 'N'}`} />
               ))}
             </Box>
           ) : (
@@ -168,6 +178,33 @@ export default function ConfirmationPage() {
             </Typography>
             <Typography variant="h6">Total Paid: {total} THB</Typography>
           </Stack>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* QR Link to this receipt */}
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>Your Receipt QR</Typography>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="Receipt QR Code"
+                width={220}
+                height={220}
+                style={{ imageRendering: 'pixelated' }}
+              />
+            ) : (
+              <Typography variant="caption" color="text.secondary">QR unavailable</Typography>
+            )}
+            <Stack direction="row" spacing={1} justifyContent="center" sx={{ mt: 1 }}>
+              <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>{confirmationUrl}</Typography>
+              <Button
+                size="small"
+                onClick={() => navigator.clipboard?.writeText(confirmationUrl)}
+              >
+                Copy link
+              </Button>
+            </Stack>
+          </Box>
 
           <Divider sx={{ my: 2 }} />
 
