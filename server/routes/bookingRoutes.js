@@ -2,16 +2,14 @@
 import express from 'express';
 import {
   createBooking,
-  addContact,
+  getBooking,
   confirmBooking,
-  getBooking
 } from '../controllers/bookingController.js';
 
 const router = express.Router();
 
-router.post('/', createBooking);                     // create pending booking (no contact)
-router.get('/:id', getBooking);                      // fetch for payment page
-router.patch('/:id/contact', addContact);            // add contact after booking
-router.post('/:id/confirm', confirmBooking);         // confirm after payment
+router.post('/', createBooking);               // create pending booking
+router.get('/:id', getBooking);                // fetch for payment page
+router.post('/:id/confirm', confirmBooking);   // confirm + mark seats + finalize
 
 export default router;

@@ -1,24 +1,36 @@
-import { Button, Tooltip } from '@mui/material';
-import chair from '../assets/seats/chair.png';
-import check from '../assets/seats/check.png';
-import account from '../assets/seats/account.png';
+// src/components/SeatButton.jsx
+import { Tooltip, IconButton } from '@mui/material';
 
-export default function SeatButton({ seat, seatId, selected, onClick }) {
-  const isBooked = Boolean(seat?.isBooked);     // safe
-  const icon = isBooked ? account : selected ? check : chair;
-  const label = `${seatId}${isBooked ? ' (taken)' : selected ? ' (selected)' : ''}`;
+export default function SeatButton({ seat, seatId, selected, onClick, type = 'normal', price }) {
+  const isBooked = seat?.isBooked;
+  const label = `${seatId} • ${type === 'honeymoon' ? 'Honeymoon' : 'Normal'} • ${price} THB`;
+
+  // Color coding: normal uses "primary", honeymoon uses "secondary"
+  const palette = type === 'honeymoon' ? 'secondary' : 'primary';
 
   return (
-    <Tooltip title={label}>
+    <Tooltip title={label} arrow>
       <span>
-        <Button
+        <IconButton
+          size="small"
           onClick={onClick}
-          disabled={isBooked}         // if seat is missing we treat as available
-          variant="text"
-          sx={{ minWidth: 0, p: 0.5, opacity: isBooked ? 0.7 : 1 }}
-        >
-          <img src={icon} alt={label} style={{ width: 36, height: 36, display: 'block' }} />
-        </Button>
+          disabled={!!isBooked}
+          sx={{
+            width: 34, height: 34, borderRadius: 1,
+            border: theme => `2px solid ${selected
+              ? theme.palette[palette].main
+              : theme.palette.action.disabledBackground}`,
+            bgcolor: theme => selected
+              ? theme.palette[palette].main
+              : theme.palette.action.selected,
+            color: theme => selected ? theme.palette.getContrastText(theme.palette[palette].main) : 'inherit',
+            opacity: isBooked ? 0.35 : 1,
+            '&:hover': {
+              bgcolor: theme => theme.palette[palette].main,
+              color: theme => theme.palette.getContrastText(theme.palette[palette].main),
+            },
+          }}
+        />
       </span>
     </Tooltip>
   );

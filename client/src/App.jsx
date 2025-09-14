@@ -32,8 +32,10 @@ function App() {
       <Route path="/movie/:movieId/showtime" element={<ShowtimePage />} />
       <Route path="/show/:showId/seats" element={<SeatSelectionPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
-      <Route path="/payment" element={<PaymentPage />} />
-      <Route path="/confirmation" element={<ConfirmationPage />} />
+      <Route path="/payment/:bookingId" element={<PaymentPage />} />
+// in your router
+      <Route path="/confirmation/:bookingId" element={<ConfirmationPage />} />
+
       <Route path="/cancel" element={<CancelBookingPage />} />
       <Route path="/dashboard" element={<UserDashboardPage />} />
       <Route path="/login" element={<LoginPage />} />
@@ -48,7 +50,7 @@ function App() {
       <Route path="/admin/movies" element={<AdminMovieListPage />} />
       <Route path="/admin/movies/new" element={<AdminAddMoviePage />} />
      <Route path="/admin/shows/new" element={<AdminAddShowPage />} />
-      <Route path="/admin/shows/manage)" element={<AdminShowManagementPage />} />
+      <Route path="/admin/shows/manage" element={<AdminShowManagementPage />} />
       <Route path="/admin/bookings" element={<AdminBookingManagementPage />} />
     </Routes>
   );

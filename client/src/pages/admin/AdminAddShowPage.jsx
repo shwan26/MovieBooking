@@ -1,11 +1,36 @@
 // src/pages/admin/AdminAddShowPage.jsx
-import { Container, Typography, TextField, Button, MenuItem, FormControlLabel, Checkbox } from '@mui/material';
+import { Container, Typography, TextField, Button, MenuItem, FormControlLabel, Checkbox, Stack } from '@mui/material';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const THEATRE_OPTIONS = Array.from({ length: 8 }, (_, i) => i + 1);
 const AGE_OPTIONS = ['U', 'U 13+', '15+', '18+'];
 const FORMAT_OPTIONS = ['TH Sub (Original)', 'TH Dub'];
+
+// ----- Seat layout helpers -----
+// 10 columns (1..10) x 10 rows (A..J). We'll choose 10 honeymoon seats:
+// Back/center pairs: I5-I6, I7-I8, J5-J6, J7-J8, J3-J4 (total 10 seats).
+const ROWS = 'ABCDEFGHIJ'.split('');
+const COLS = Array.from({ length: 10 }, (_, i) => i + 1);
+const idOf = (r, c) => `${r}${c}`;
+
+function defaultSeatTypeMap() {
+  const honeymoon = new Set([
+    idOf('I', 5), idOf('I', 6),
+    idOf('I', 7), idOf('I', 8),
+    idOf('J', 5), idOf('J', 6),
+    idOf('J', 7), idOf('J', 8),
+    idOf('J', 3), idOf('J', 4),
+  ]);
+  const map = {};
+  for (const r of ROWS) {
+    for (const c of COLS) {
+      const id = idOf(r, c);
+      map[id] = honeymoon.has(id) ? 'honeymoon' : 'normal';
+    }
+  }
+  return map;
+}
 
 export default function AdminAddShowPage() {
   const [form, setForm] = useState({
@@ -48,6 +73,8 @@ export default function AdminAddShowPage() {
         date: form.date,
         time: form.time,
         autoNext: form.autoNext,
+        // ALWAYS include seat types (10 honeymoon seats, rest normal)
+        seatTypeMap: defaultSeatTypeMap(),
       };
       if (form.format === 'TH Sub (Original)') {
         payload.originalLanguage = form.originalLanguage.trim();
@@ -103,10 +130,12 @@ export default function AdminAddShowPage() {
         {AGE_OPTIONS.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
       </TextField>
 
-      <TextField name="date" type="date" label="Date" fullWidth sx={{ mb: 2 }}
-        InputLabelProps={{ shrink: true }} value={form.date} onChange={handleChange} />
-      <TextField name="time" type="time" label="Time" fullWidth sx={{ mb: 2 }}
-        InputLabelProps={{ shrink: true }} value={form.time} onChange={handleChange} />
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <TextField name="date" type="date" label="Date" fullWidth
+          InputLabelProps={{ shrink: true }} value={form.date} onChange={handleChange} />
+        <TextField name="time" type="time" label="Time" fullWidth
+          InputLabelProps={{ shrink: true }} value={form.time} onChange={handleChange} />
+      </Stack>
 
       <FormControlLabel
         control={<Checkbox checked={form.autoNext} onChange={e => setForm(f => ({...f, autoNext: e.target.checked}))} />}

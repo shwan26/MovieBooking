@@ -1,25 +1,26 @@
 // src/pages/SeatSelectionPage.jsx
 import {
-  Box, Container, Typography, Grid, Button, CircularProgress, Alert, Card, CardContent, Divider, Chip
+  Box, Container, Typography, Grid, Button, CircularProgress, Alert, Card, CardContent, Divider, Chip, Stack
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import SeatButton from '../components/SeatButton';
 
+const PRICES = { normal: 250, honeymoon: 400 };
+
 export default function SeatSelectionPage() {
   const { showId } = useParams();
   const navigate = useNavigate();
 
   const [show, setShow] = useState(null);
-  const [movieTitle, setMovieTitle] = useState('');   // NEW
+  const [movieTitle, setMovieTitle] = useState('');
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let mounted = true;
-
     async function load() {
       try {
         setLoading(true);
@@ -28,38 +29,37 @@ export default function SeatSelectionPage() {
         if (!mounted) return;
         setShow(showData);
 
-        // Try to read title directly if backend provides it in any common shape
         const inlineTitle =
-          showData.movieTitle ||
-          showData.title ||
-          showData.movieName ||
-          showData.movie?.title;
-
-        if (inlineTitle) {
-          setMovieTitle(inlineTitle);
-        } else if (showData.movieId) {
-          // Fallback: fetch the movie by id
+          showData.movieTitle || showData.title || showData.movieName || showData.movie?.title;
+        if (inlineTitle) setMovieTitle(inlineTitle);
+        else if (showData.movieId) {
           try {
             const { data: movieData } = await axios.get(`http://localhost:5000/api/movies/${showData.movieId}`);
-            if (!mounted) return;
-            setMovieTitle(movieData?.title || '');
-          } catch {
-            // Silent fail — keep empty string; UI will show placeholder
-          }
+            if (mounted) setMovieTitle(movieData?.title || '');
+          } catch {}
         }
       } catch {
-        if (!mounted) return;
-        setError('Failed to load show.');
+        if (mounted) setError('Failed to load show.');
       } finally {
         if (mounted) setLoading(false);
       }
     }
-
     load();
     return () => { mounted = false; };
   }, [showId]);
 
-  // Map for quick seat lookup
+  // Seat types (prefer backend; else 10 honeymoon seats)
+  const seatTypeMap = useMemo(() => {
+    if (show?.seatTypeMap && typeof show.seatTypeMap === 'object') return show.seatTypeMap;
+    const honeymoon = new Set(['I5','I6','I7','I8','J5','J6','J7','J8','J3','J4']);
+    const map = {};
+    'ABCDEFGHIJ'.split('').forEach(r => {
+      for (let c = 1; c <= 10; c++) map[`${r}${c}`] = honeymoon.has(`${r}${c}`) ? 'honeymoon' : 'normal';
+    });
+    return map;
+  }, [show]);
+
+  // Fast seat lookup
   const seatMap = useMemo(() => {
     if (!show?.seats) return {};
     return Object.fromEntries(show.seats.map(s => [s.seatNumber, s]));
@@ -76,23 +76,27 @@ export default function SeatSelectionPage() {
       return;
     }
     setSelectedSeats(prev =>
-      prev.includes(seatNumber)
-        ? prev.filter(s => s !== seatNumber)
-        : [...prev, seatNumber]
+      prev.includes(seatNumber) ? prev.filter(s => s !== seatNumber) : [...prev, seatNumber]
     );
   };
 
-  const pricePerSeat = show?.price ?? 300;
-  const total = pricePerSeat * selectedSeats.length;
+  const counts = useMemo(() => {
+    let normal = 0, honeymoon = 0;
+    for (const s of selectedSeats) (seatTypeMap[s] === 'honeymoon' ? honeymoon++ : normal++);
+    return { normal, honeymoon };
+  }, [selectedSeats, seatTypeMap]);
+  const total = counts.normal * PRICES.normal + counts.honeymoon * PRICES.honeymoon;
 
+  // Create PENDING booking (do NOT mark seats yet)
   const handleProceed = async () => {
     try {
       setError('');
       const res = await axios.post(`http://localhost:5000/api/bookings`, {
         showId,
-        seats: selectedSeats
+        seats: selectedSeats,
+        seatTypeMap, // so Payment can compute per-type
       });
-      const bookingId = res.data?.booking?._id;
+      const bookingId = res.data?.booking?._id;   // NOTE: { booking: {...} }
       if (!bookingId) throw new Error('No booking id returned');
       navigate(`/payment/${bookingId}`);
     } catch (err) {
@@ -103,15 +107,7 @@ export default function SeatSelectionPage() {
   if (loading) return <CircularProgress sx={{ m: 4 }} />;
   if (!show) return <Typography sx={{ m: 4 }}>Show not found</Typography>;
 
-  // Normalize theatre fields (support various backends)
-  const theatreNumber =
-    show.theatre ??
-    show.theaterNumber ??
-    show.theater ??
-    show.hall ??
-    1;
-
-  // Match the format display used in ShowtimePage
+  const theatreNumber = show.theatre ?? show.theaterNumber ?? show.theater ?? show.hall ?? 1;
   const formatWithLanguage = (() => {
     if (show.format === 'TH Sub (Original)') {
       const lang = (show.originalLanguage || '').trim().toUpperCase();
@@ -130,33 +126,35 @@ export default function SeatSelectionPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Grid container spacing={3}>
-        {/* LEFT: Screen + Seats */}
+        {/* LEFT */}
         <Grid item xs={12} md={8} lg={9}>
-          <Box
-            sx={{
-              width: '100%', textAlign: 'center',
-              bgcolor: 'grey.900', color: 'white', py: 1, mb: 3, borderRadius: 1
-            }}
-          >
+          <Box sx={{ width: '100%', textAlign: 'center', bgcolor: 'grey.900', color: 'white', py: 1, mb: 2, borderRadius: 1 }}>
             SCREEN
           </Box>
+
+          <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center">
+            <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: 'primary.main', opacity: 0.75 }} />
+            <Typography variant="caption">Normal — 250 THB</Typography>
+            <Box sx={{ width: 16, height: 16, borderRadius: 0.5, bgcolor: 'secondary.main', opacity: 0.75 }} />
+            <Typography variant="caption">Honeymoon — 400 THB</Typography>
+          </Stack>
 
           {'ABCDEFGHIJ'.split('').map(row => (
             <Grid item key={row} sx={{ mb: 1 }}>
               <Grid container spacing={0.5} justifyContent="center" alignItems="center">
-                <Grid item>
-                  <Typography variant="caption" sx={{ width: 14, display: 'inline-block' }}>
-                    {row}
-                  </Typography>
-                </Grid>
+                <Grid item><Typography variant="caption" sx={{ width: 14, display: 'inline-block' }}>{row}</Typography></Grid>
                 {Array.from({ length: 10 }, (_, i) => {
                   const seatId = `${row}${i + 1}`;
                   const seat = getSeat(seatId);
+                  const type = seatTypeMap[seatId] || 'normal';
+                  const price = type === 'honeymoon' ? 400 : 250;
                   return (
                     <Grid item key={seatId}>
                       <SeatButton
                         seat={seat}
                         seatId={seatId}
+                        type={type}
+                        price={price}
                         selected={selectedSeats.includes(seatId)}
                         onClick={() => toggleSeat(seatId)}
                       />
@@ -168,43 +166,26 @@ export default function SeatSelectionPage() {
           ))}
         </Grid>
 
-        {/* RIGHT: Summary */}
+        {/* RIGHT */}
         <Grid item xs={12} md={4} lg={3}>
           <Card sx={{ position: { md: 'sticky' }, top: { md: 24 } }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>Summary</Typography>
               <Divider sx={{ mb: 2 }} />
-
               <Typography variant="body2"><b>Movie:</b> {movieTitle || '—'}</Typography>
               <Typography variant="body2"><b>Theatre:</b> {theatreNumber}</Typography>
               <Typography variant="body2"><b>Format:</b> {formatWithLanguage}</Typography>
               <Typography variant="body2"><b>Date & Time:</b> {show.date} • {show.time}</Typography>
 
               <Divider sx={{ my: 2 }} />
-
               <Typography variant="body2" sx={{ mb: 1 }}><b>Seats:</b></Typography>
-              {selectedSeats.length ? (
-                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                  {selectedSeats.map(s => <Chip size="small" key={s} label={s} />)}
-                </Box>
-              ) : (
-                <Typography variant="caption" color="text.secondary">No seats selected</Typography>
-              )}
+              {selectedSeats.length
+                ? <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>{selectedSeats.map(s => <Chip size="small" key={s} label={s} />)}</Box>
+                : <Typography variant="caption" color="text.secondary">No seats selected</Typography>
+              }
+              <Typography variant="h6" sx={{ mt: 1 }}>Total: {total} THB</Typography>
 
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                <b>Price/seat:</b> {pricePerSeat} THB
-              </Typography>
-              <Typography variant="h6" sx={{ mt: 1 }}>
-                Total: {total} THB
-              </Typography>
-
-              <Button
-                variant="contained"
-                fullWidth
-                sx={{ mt: 2 }}
-                disabled={!selectedSeats.length}
-                onClick={handleProceed}
-              >
+              <Button variant="contained" fullWidth sx={{ mt: 2 }} disabled={!selectedSeats.length} onClick={handleProceed}>
                 Continue to Payment
               </Button>
             </CardContent>
