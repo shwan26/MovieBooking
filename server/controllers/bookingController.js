@@ -83,13 +83,49 @@ export const confirmBooking = async (req, res) => {
       { normal: 0, honeymoon: 0 }
     );
 
-    // Pricing
+    // Pricing base
     const seatSubtotal = counts.normal * PRICES.normal + counts.honeymoon * PRICES.honeymoon;
     const popcorn = Math.max(0, Number(addOns?.popcorn || 0));
     const cola = Math.max(0, Number(addOns?.cola || 0));
     const addonSubtotal = popcorn * ADDON_PRICES.popcorn + cola * ADDON_PRICES.cola;
-    const discount = booking.seats.length === 4 ? 100 : 0;
-    const total = Math.max(0, seatSubtotal + addonSubtotal - discount);
+
+    // Membership discount (10% if card present)
+    let membershipDiscount = 0;
+    const hasMembership = !!(contact?.membershipCard && String(contact.membershipCard).trim());
+    if (hasMembership) {
+      membershipDiscount = 0.10 * (seatSubtotal + addonSubtotal);
+    }
+
+    // Coupon handling (toy example: SAVE50 = THB 50, SAVE10 = 10%)
+    let couponDiscount = 0;
+    let appliedCoupon = null;
+    if (contact?.couponId && String(contact.couponId).trim()) {
+      const code = String(contact.couponId).trim().toUpperCase();
+      const coupon =
+        code === 'SAVE50' ? { valid: true, type: 'amount', value: 50 } :
+        code === 'SAVE10' ? { valid: true, type: 'percent', value: 0.10 } :
+        { valid: false };
+
+      if (coupon.valid) {
+        appliedCoupon = { code, type: coupon.type, value: coupon.value };
+        const baseForCoupon = Math.max(0, seatSubtotal + addonSubtotal - membershipDiscount);
+        couponDiscount = coupon.type === 'percent'
+          ? baseForCoupon * coupon.value
+          : coupon.value;
+      } else {
+        appliedCoupon = { code, type: 'invalid' };
+        // Alternatively: `return res.status(400).json({ error: 'Invalid or expired coupon' });`
+      }
+    }
+
+    // Existing flat promo: -100 if exactly 4 seats
+    const flatPromoDiscount = booking.seats.length === 4 ? 100 : 0;
+
+    // Final total (server is source of truth)
+    const total = Math.max(
+      0,
+      seatSubtotal + addonSubtotal - membershipDiscount - couponDiscount - flatPromoDiscount
+    );
 
     // Mark seats as booked now (atomic save)
     show.seats = show.seats.map(seat =>
@@ -106,7 +142,9 @@ export const confirmBooking = async (req, res) => {
       counts,
       seatSubtotal,
       addonSubtotal,
-      discount,
+      discount: flatPromoDiscount,
+      membership: { hasMembership, membershipDiscount },
+      coupon: { applied: appliedCoupon, couponDiscount },
       addOns: { popcorn, cola, prices: ADDON_PRICES }
     };
     booking.contact = {

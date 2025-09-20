@@ -7,14 +7,27 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "vitest": {
+    "test": {
+      "environment": "jsdom",
+      "setupFiles": [
+        "./src/tests/setupTests.js"
+      ],
+      "include": [
+        "src/**/*.{test,spec}.{js,ts,jsx,tsx}"
+      ],
+      "globals": true
+    }
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.2.0",
     "@mui/material": "^7.2.0",
-    "axios": "^1.10.0",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -22,13 +35,19 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "axios": "^1.12.2",
     "eslint": "^9.30.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
-    "vite": "^7.0.4"
+    "jsdom": "^27.0.0",
+    "vite": "^7.0.4",
+    "vitest": "^3.2.4"
   }
 }

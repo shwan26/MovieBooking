@@ -24,3 +24,10 @@ Feature	URL
 run the code
 client - npm run dev
 server - npx nodemon index.js
+
+
+test in client
+```npm i -D vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom```
+
+test in server
+```npm i -D vitest supertest mongodb-memory-server @types/supertest```
