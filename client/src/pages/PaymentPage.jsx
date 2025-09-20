@@ -1,4 +1,4 @@
-// src/pages/PaymentPage.jsx
+// client/src/pages/PaymentPage.jsx
 import {
   Container, Grid, Card, CardContent, Typography, Divider, TextField, Button,
   CircularProgress, Alert, Box, Chip, Stack, IconButton, ToggleButtonGroup, ToggleButton, Paper
@@ -94,10 +94,28 @@ export default function PaymentPage() {
     return { normal, honeymoon };
   }, [seats, seatTypeMap]);
 
+  // --- Subtotals & discounts (UI preview; server recomputes authoritatively) ---
   const seatSubtotal = counts.normal * PRICES.normal + counts.honeymoon * PRICES.honeymoon;
   const addonSubtotal = addons.popcorn * ADDON_PRICES.popcorn + addons.cola * ADDON_PRICES.cola;
-  const discount = seats.length === 4 ? 100 : 0;
-  const total = Math.max(0, seatSubtotal + addonSubtotal - discount);
+
+  // Membership 10% if card present
+  const hasMembership = form.membershipCard.trim().length > 0;
+  const membershipDiscount = hasMembership ? 0.10 * (seatSubtotal + addonSubtotal) : 0;
+
+  // Coupon (toy rules; matches server)
+  let couponDiscount = 0;
+  const couponCode = form.couponId.trim().toUpperCase();
+  if (couponCode === 'SAVE50') couponDiscount = 50;
+  if (couponCode === 'SAVE10')
+    couponDiscount = 0.10 * Math.max(0, seatSubtotal + addonSubtotal - membershipDiscount);
+
+  // Existing flat promo: -100 if exactly 4 seats
+  const flatPromoDiscount = seats.length === 4 ? 100 : 0;
+
+  const total = Math.max(
+    0,
+    seatSubtotal + addonSubtotal - membershipDiscount - couponDiscount - flatPromoDiscount
+  );
 
   const formatWithLanguage = useMemo(() => {
     if (!show) return '';
@@ -117,14 +135,12 @@ export default function PaymentPage() {
 
   // ---------- QR simulation timer ----------
   useEffect(() => {
-    // reset state on method change
     if (method !== 'qr') {
       setQrPaid(false);
       return;
     }
     setQrPaid(false);
     setQrCountdown(60);
-
     const iv = setInterval(() => {
       setQrCountdown(prev => {
         if (prev <= 1) {
@@ -135,20 +151,26 @@ export default function PaymentPage() {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(iv);
   }, [method]);
 
   // ---------- Card helpers ----------
-  const maskCard = (num) => {
+  const luhnValid = (num) => {
     const digits = (num || '').replace(/\s+/g, '');
-    if (digits.length < 4) return '****';
-    return '**** **** **** ' + digits.slice(-4);
+    if (!/^\d{13,19}$/.test(digits)) return false;
+    let sum = 0, flip = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let n = +digits[i];
+      if (flip) { n *= 2; if (n > 9) n -= 9; }
+      sum += n; flip = !flip;
+    }
+    return sum % 10 === 0;
   };
+
   const cardValid = useMemo(() => {
     const nameOk = card.name.trim().length > 2;
     const numberDigits = card.number.replace(/\s+/g, '');
-    const numberOk = /^\d{13,19}$/.test(numberDigits);
+    const numberOk = luhnValid(numberDigits);
     const expiryOk = /^(0[1-9]|1[0-2])\/\d{2}$/.test(card.expiry.trim());
     const cvcOk = /^\d{3,4}$/.test(card.cvc.trim());
     return nameOk && numberOk && expiryOk && cvcOk;
@@ -156,7 +178,7 @@ export default function PaymentPage() {
 
   const canPay = method === 'qr' ? qrPaid : cardValid;
 
-  // Confirm = contact + add-ons + payment meta + server-side seat lock + totals
+  // Confirm = contact + add-ons + payment meta; server recomputes totals/discounts and locks seats
   const handlePay = async () => {
     try {
       setError('');
@@ -232,16 +254,20 @@ export default function PaymentPage() {
                 <Divider />
                 <Typography variant="body2">Seats Subtotal: {seatSubtotal} THB</Typography>
                 <Typography variant="body2">Add-ons: {addonSubtotal} THB</Typography>
-                <Typography variant="body2" color={seats.length === 4 ? 'success.main' : 'text.secondary'}>
-                  Discount (4 seats): −{seats.length === 4 ? 100 : 0} THB
+                <Typography variant="body2" color={hasMembership ? 'success.main' : 'text.secondary'}>
+                  Membership (10%): −{Math.round(membershipDiscount)} THB
                 </Typography>
-                <Typography variant="h6">Total: {total} THB</Typography>
+                <Typography variant="body2" color={couponDiscount ? 'success.main' : 'text.secondary'}>
+                  Coupon: −{Math.round(couponDiscount)} THB
+                </Typography>
+                <Typography variant="body2" color={seats.length === 4 ? 'success.main' : 'text.secondary'}>
+                  Discount (4 seats): −{flatPromoDiscount} THB
+                </Typography>
+                <Typography variant="h6">Total: {Math.round(total)} THB</Typography>
               </Stack>
             </CardContent>
           </Card>
         </Grid>
-
-        
 
         {/* RIGHT: Contact + Payment */}
         <Grid item xs={12} md={7}>
@@ -285,10 +311,6 @@ export default function PaymentPage() {
 
               <Divider sx={{ my: 2 }} />
 
-              
-
-              <Divider sx={{ my: 2 }} />
-
               {/* Payment method switch */}
               <Typography variant="subtitle1" gutterBottom>Choose Payment Method</Typography>
               <ToggleButtonGroup
@@ -306,7 +328,6 @@ export default function PaymentPage() {
               {method === 'qr' && (
                 <Stack spacing={1}>
                   <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                    {/* Placeholder QR area */}
                     <Box
                       sx={{
                         width: 220, height: 220, mx: 'auto',
@@ -385,7 +406,7 @@ export default function PaymentPage() {
                 onClick={handlePay}
                 disabled={!canPay}
               >
-                Pay {total} THB
+                Pay {Math.round(total)} THB
               </Button>
             </CardContent>
           </Card>
